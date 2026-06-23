@@ -1,0 +1,58 @@
+services:
+
+  caddy:
+    image: caddy
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Volumes/caddyconf:/etc/caddy
+      - ./Volumes/caddydata:/data
+    restart: always
+    networks:
+      - caddy-shadowsocks
+
+  shadowsocks-direct:
+    image: shadowsocks
+    build:
+      context: docker
+      dockerfile: shadowsocks.Dockerfile
+    container_name: shadowsocks-direct
+    volumes:
+      - ./Volumes/shadowsocks-direct:/etc/shadowsocks-rust
+    restart: always
+    networks:
+      - caddy-shadowsocks
+
+  warp:
+    image: cloudflare-warp
+    build:
+      context: docker
+      dockerfile: warp.Dockerfile
+    container_name: warp
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ./Volumes/warp:/var/lib/cloudflare-warp
+    restart: always
+    networks:
+      - caddy-shadowsocks
+
+  shadowsocks-warp:
+    image: shadowsocks
+    build:
+      context: docker
+      dockerfile: shadowsocks.Dockerfile
+    container_name: shadowsocks-warp
+    network_mode: service:warp
+    volumes:
+      - ./Volumes/shadowsocks-warp:/etc/shadowsocks-rust
+    restart: always
+    depends_on:
+      - warp
+
+networks:
+  caddy-shadowsocks:
